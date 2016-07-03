@@ -1,0 +1,15 @@
+body {
+  margin: 0;
+  font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+  background-color: #dfdfdf;
+}
+
+.loading {
+  position: absolute;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  background-color: #dfdfdf;
+  text-align: center;
+  padding-top: 10%;
+}
