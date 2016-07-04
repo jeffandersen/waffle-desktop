@@ -12,7 +12,10 @@
   "scripts": {
     "start": "NODE_ENV=development electron . --enable-logging",
     "build": "npm start",
-    "dist": "rm -rf release/Waffle Desktop-darwin-x64 && NODE_ENV=production electron-packager ./ \"Waffle Desktop\" --platform=darwin --arch=x64 --icon src/images/icons/circle.icns --out ./release --overwrite && open release/"
+    "dist": "npm run clean && npm run dist:osx && npm run dmg && open ./release",
+    "clean": "rm -rf release/",
+    "dist:osx": "NODE_ENV=production electron-packager ./ \"Waffle Desktop\" --platform=darwin --arch=x64 --icon src/images/icons/circle.icns --out ./release --overwrite",
+    "dmg": "appdmg dmg.json \"release/Waffle Desktop.dmg\""
   },
   "keywords": [
     "waffle",
@@ -22,7 +25,8 @@
   "main": "src/main.js",
   "devDependencies": {
     "electron-packager": "7.1.0",
-    "electron-prebuilt": "1.2.5"
+    "electron-prebuilt": "1.2.5",
+    "appdmg": "0.4.5"
   },
   "dependencies": {
     "electron": "0.4.1",
