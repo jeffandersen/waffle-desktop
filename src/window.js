@@ -130,6 +130,38 @@ Window.prototype.setApplicationMenu = function(settings) {
       label: this.appName,
       submenu: [
         {
+          label: 'Go Home',
+          click: function() {
+            if (!self.webview) return;
+            self.webview.loadURL('https://waffle.io');
+          }
+        },
+        {
+          label: 'Notifications',
+          submenu: [
+            {
+              type: 'checkbox',
+              label: 'Mute sounds',
+              checked: !!settings.mute.checked,
+              click() {
+                var mute = settings.mute;
+                mute.checked = !mute.checked;
+                self.changeSetting('mute', mute);
+              }
+            },
+            {
+              type: 'checkbox',
+              label: 'Disable notifications',
+              checked: !!settings.dnd.checked,
+              click() {
+                var dnd = settings.dnd;
+                dnd.checked = !dnd.checked;
+                self.changeSetting('dnd', dnd);
+              }
+            }
+          ]
+        },
+        {
           role: 'quit',
           accelerator: "Command+Q",
           label: 'Quit ' + this.appName,
@@ -188,31 +220,6 @@ Window.prototype.setApplicationMenu = function(settings) {
           accelerator: 'CmdOrCtrl+W',
           role: 'close'
         },
-      ]
-    },
-    {
-      label: 'Settings',
-      submenu: [
-        {
-          type: 'checkbox',
-          label: 'Mute sounds',
-          checked: !!settings.mute.checked,
-          click() {
-            var mute = settings.mute;
-            mute.checked = !mute.checked;
-            self.changeSetting('mute', mute);
-          }
-        },
-        {
-          type: 'checkbox',
-          label: 'Disable notifications',
-          checked: !!settings.dnd.checked,
-          click() {
-            var dnd = settings.dnd;
-            dnd.checked = !dnd.checked;
-            self.changeSetting('dnd', dnd);
-          }
-        }
       ]
     },
   ]);
