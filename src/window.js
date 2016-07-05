@@ -1,5 +1,7 @@
 const storage = require('electron-json-storage');
-const remote = require('electron').remote;
+const electron = require('electron');
+const remote = electron.remote;
+const shell = electron.shell;
 const Menu = remote.Menu;
 const MenuItem = remote.MenuItem;
 
@@ -59,6 +61,16 @@ Window.prototype.listen = function() {
       self.visible = true;
       indicator.style.display = 'none';
     }, 500);
+  });
+
+  this.webview.addEventListener('new-window', function(e) {
+    const protocol = require('url').parse(e.url).protocol;
+    if (protocol === 'http:' || protocol === 'https:') {
+      if (e.url.indexOf('https://waffle.io') === 0) {
+        return self.webview.loadURL(e.url);
+      }
+      shell.openExternal(e.url);
+    }
   });
 };
 
