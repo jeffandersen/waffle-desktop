@@ -149,22 +149,6 @@ Window.prototype.setApplicationMenu = function(settings) {
           }
         },
         {
-          type: 'separator'
-        },
-        {
-          role: 'hide',
-          label: 'Hide ' + this.appName
-        },
-        {
-          role: 'hideothers'
-        },
-        {
-          role: 'unhide'
-        },
-        {
-          type: 'separator'
-        },
-        {
           label: 'Notifications',
           submenu: [
             {
@@ -188,6 +172,22 @@ Window.prototype.setApplicationMenu = function(settings) {
               }
             }
           ]
+        },
+        {
+          type: 'separator'
+        },
+        {
+          role: 'hide',
+          label: 'Hide ' + this.appName
+        },
+        {
+          role: 'hideothers'
+        },
+        {
+          role: 'unhide'
+        },
+        {
+          type: 'separator'
         },
         {
           role: 'quit',
