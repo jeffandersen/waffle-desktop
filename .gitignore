@@ -1,4 +1,5 @@
 node_modules
 release/*
+!release/Waffle Desktop.dmg
 .DS_Store
 *.sw?
