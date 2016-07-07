@@ -1,8 +1,0 @@
-{
-  "title": "Waffle Desktop",
-  "icon": "src/images/icons/circle.icns",
-  "contents": [
-    { "x": 448, "y": 100, "type": "link", "path": "/Applications" },
-    { "x": 192, "y": 100, "type": "file", "path": "./release/Waffle Desktop-darwin-x64/Waffle Desktop.app" }
-  ]
-}
