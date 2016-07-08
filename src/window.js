@@ -1,9 +1,14 @@
 const storage = require('electron-json-storage');
 const electron = require('electron');
+const request = require('request');
+const semver = require('semver');
+const url = require('url');
 const remote = electron.remote;
 const shell = electron.shell;
 const Menu = remote.Menu;
 const MenuItem = remote.MenuItem;
+
+const packageJson = require('../package.json');
 
 function Window() {
   this.appName = 'Waffle Desktop';
@@ -19,8 +24,39 @@ Window.prototype.init = function() {
     self.webview = document.getElementById('webview');
     self.setApplicationMenu();
     self.listen();
+  }).then(function() {
+    return self.checkForUpdate();
   }).catch(function(err) {
     throw err;
+  });
+};
+
+Window.prototype.checkForUpdate = function() {
+  return new Promise((resolve) => {
+    var self = this;
+    request({
+      method: 'GET',
+      url: 'http://waffledesktop.com/latest.json',
+      json: true,
+    }, function(err, res) {
+      if (res && res.statusCode === 200 && res.body) {
+        self.latestVersion = res.body.version;
+
+        // Only notify of new version
+        if (semver.gt(self.latestVersion, packageJson.version)) {
+          return self.settings.get('notifiedUpdates').then(function(versions) {
+            versions = versions || [];
+            // Only notify once
+            if (versions.indexOf(self.latestVersion) === -1) {
+              versions.push(self.latestVersion);
+              self._updateNotification(self.latestVersion, res.body.downloadUrl);
+              return self.settings.set('notifiedUpdates', versions);
+            }
+          });
+        }
+      }
+      resolve();
+    });
   });
 };
 
@@ -67,6 +103,19 @@ Window.prototype.listen = function() {
       shell.openExternal(e.url);
     }
   });
+};
+
+Window.prototype._updateNotification = function(latestVersion, url) {
+  if (this.hasNotifiedUpdate) return;
+
+  var self = this;
+  setTimeout(function() {
+    var args = "'" + latestVersion + "', '" + url + "'";
+    var script = "window.WaffleDesktopNotifier.updateAvailable(" + args + ");";
+    self.webview.executeJavaScript(script, function() {
+      self.hasNotifiedUpdate = true;
+    });
+  }, 5 * 1000);
 };
 
 Window.prototype.injectSettings = function() {
@@ -265,8 +314,6 @@ Settings.prototype._retrieve = function() {
 
 Settings.prototype.checked = function(path) {
   var checked = _.get(this._values, path + '.checked') === true;
-  console.log('path-' + path);
-  console.log('checked-' + checked);
   return checked;
 };
 

@@ -6,7 +6,7 @@ window.onload = function() {
   var injector = $body.injector();
   var $rootScope = injector.get('$rootScope');
 
-  var notifier = new Notifier({
+  window.WaffleDesktopNotifier = new Notifier({
     $scope: window.angular.element('body').injector().get('$rootScope'),
     webview: remote.getCurrentWindow(),
     app: window.Application,
@@ -15,7 +15,7 @@ window.onload = function() {
     ipc: ipc,
   });
 
-  notifier.init();
+  window.WaffleDesktopNotifier.init();
 };
 
 function Notifier(opts) {
@@ -271,6 +271,19 @@ Notifier.prototype.send = function(title, body, opts) {
     this.ipc.send('unreadCount', this.unreadCount);
   }
 
+  return n;
+};
+
+Notifier.prototype.updateAvailable = function(latestVersion, url) {
+  console.log('update avail', arguments);
+  var n = new Notification('Update available', {
+    body: 'Click here to download v' + latestVersion
+  });
+  if (url) {
+    n.onclick = function() {
+      window.location.href = url;
+    };
+  }
   return n;
 };
 
