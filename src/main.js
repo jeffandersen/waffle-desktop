@@ -7,13 +7,16 @@ const ipcMain  = require('electron').ipcMain;
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
 
-const WINDOW_STATE = 'windowState';
+const WINDOW_STATE = 'settings.windowState';
 
 let mainWindow;
 
 function createWindow () {
-  storage.get(WINDOW_STATE, function(error, bounds) {
-    if (error) throw error;
+  storage.get(WINDOW_STATE, function(err, bounds) {
+    if (err) {
+      console.log(error);
+      return app.quit();
+    }
 
     bounds = bounds || { width: 800, height: 600 };
     bounds.title = "Waffle Desktop";
@@ -32,6 +35,19 @@ function createWindow () {
     ipcMain.on('hideMainWindow', function() {
       mainWindow.hide();
     });
+    ipcMain.on('unreadCount', function(evt, unread) {
+      app.dock.setBadge(unread > 0 ? '' + unread : '');
+    });
+    ipcMain.on('bounceDock', function() {
+      app.dock.bounce();
+    });
+    ipcMain.on('crash', function(evt, reason) {
+      console.error('crashed due to timeout: ' + reason);
+      if (process.env.NODE_ENV !== 'development') {
+        app.quit();
+      }
+    });
+
     mainWindow.on('close', function () {
       var bounds = mainWindow.getBounds();
       storage.set(WINDOW_STATE, {
