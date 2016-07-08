@@ -1,14 +1,18 @@
 window.onload = function() {
-  var body = window.angular.element('body').scope();
-  var $root = body.$root;
+  var $body = window.angular.element('body');
+  var injector = $body.injector();
+  var $rootScope = injector.get('$rootScope');
 
   var remote = require('electron').remote;
+  var ipc = require('electron').ipcRenderer;
 
   var notifier = new Notifier({
+    $scope: window.angular.element('body').injector().get('$rootScope'),
     webview: remote.getCurrentWindow(),
-    window: window,
     app: window.Application,
-    $scope: $root,
+    injector: injector,
+    window: window,
+    ipc: ipc,
   });
 
   notifier.init();
@@ -17,8 +21,10 @@ window.onload = function() {
 function Notifier(opts) {
   opts = opts || {};
 
+  this.ipc = opts.ipc;
   this.app = opts.app;
   this.$scope = opts.$scope;
+  this.injector = opts.injector;
   this.window = opts.window;
   this.webview = opts.webview;
   this.settings = window.WaffleDesktop || {};
@@ -31,6 +37,8 @@ function Notifier(opts) {
   if (!this.$scope) {
     throw new Error('missing $scope');
   }
+
+  this.displayed = false;
 }
 
 /**
@@ -72,6 +80,25 @@ Notifier.prototype.getAccessToken = function() {
  */
 Notifier.prototype.listen = function() {
   var self = this;
+
+  // Listen for ui-view element to be added to the page, then show window
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(e) {
+      if (e.addedNodes) {
+        e.addedNodes.forEach(function(n) {
+          if (n.localName === 'ui-view') {
+            setTimeout(function() {
+              self.ipc.send("showMainWindow");
+            }, 500);
+            observer.disconnect();
+          }
+        });
+      }
+    });
+  });
+  observer.observe(document.body, { subtree: true, childList: true });
+
+  // Listen for notifications
   this.$scope.$on('waffle.alert.info', function(evt, el) {
     var $el = $(el);
     var href = $el.attr('href');
