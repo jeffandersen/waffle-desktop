@@ -74,7 +74,12 @@ Window.prototype.listen = function() {
         self.setApplicationMenu();
       break;
       case 'currentProject':
-        document.title = v.args[0]? v.args[0] : 'Waffle Desktop';
+        var title = v.args[0]? v.args[0] : 'Waffle Desktop';
+        // XXX: stop-gap until bug can be identified
+        if (title.indexOf('undefined/undefined') > -1) {
+          title = 'Waffle Desktop';
+        }
+        document.title = title;
       break;
     }
   });
