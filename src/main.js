@@ -15,12 +15,22 @@ let mainWindow;
 function createWindow () {
   storage.get(WINDOW_STATE, function(err, bounds) {
     if (err) bounds = null;
-    bounds = bounds || { width: 800, height: 600 };
-    bounds.title = "Waffle Desktop";
-    bounds.show = false;
-    bounds.backgroundColor = '#dfdfdf';
-    mainWindow = new BrowserWindow(bounds);
-    if (bounds.maximized) {
+
+    var defaults = {
+      width: 800,
+      height: 600,
+      show: false,
+      backgroundColor: '#DFDFDF',
+      title: 'Waffle Desktop'
+    };
+
+    mainWindow = new BrowserWindow(defaults);
+
+    if (bounds) {
+      mainWindow.setBounds(_.defaults(bounds, defaults));
+    }
+
+    if (bounds && bounds.maximized) {
       mainWindow.maximize();
     }
 
