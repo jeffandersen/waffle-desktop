@@ -2,6 +2,7 @@
 
 const electron = require('electron');
 const storage = require('electron-json-storage');
+const ipcMain  = require('electron').ipcMain;
 
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
@@ -16,6 +17,8 @@ function createWindow () {
 
     bounds = bounds || { width: 800, height: 600 };
     bounds.title = "Waffle Desktop";
+    bounds.show = false;
+    bounds.backgroundColor = '#dfdfdf';
     mainWindow = new BrowserWindow(bounds);
     if (bounds.maximized) {
       mainWindow.maximize();
@@ -23,6 +26,12 @@ function createWindow () {
 
     mainWindow.loadURL(`file://${__dirname}/index.html`);
 
+    ipcMain.on('showMainWindow', function() {
+      mainWindow.show();
+    });
+    ipcMain.on('hideMainWindow', function() {
+      mainWindow.hide();
+    });
     mainWindow.on('close', function () {
       var bounds = mainWindow.getBounds();
       storage.set(WINDOW_STATE, {

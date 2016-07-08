@@ -7,7 +7,7 @@ const MenuItem = remote.MenuItem;
 
 function Window() {
   this.appName = 'Waffle Desktop';
-  this.visible = false;
+  this.ready = false;
   this.initialLocation = false;
   this.webview = null;
   this.settings = {};
@@ -49,18 +49,13 @@ Window.prototype.listen = function() {
   });
 
   this.webview.addEventListener('did-stop-loading', function() {
-    if (!self.visible) return;
+    if (!self.ready) return;
     var currentUrl = self.webview.getURL();
     self.set('lastViewed', { url: currentUrl });
   });
 
   this.webview.addEventListener('did-stop-loading', function() {
-    const indicator = document.querySelector('.loading');
-    self.webview.style.visibility = 'visible';
-    setTimeout(function() {
-      self.visible = true;
-      indicator.style.display = 'none';
-    }, 500);
+    self.ready = true;
   });
 
   this.webview.addEventListener('new-window', function(e) {
@@ -77,7 +72,10 @@ Window.prototype.listen = function() {
 Window.prototype.set = function(key, value) {
   return new Promise((resolve, reject) => {
     storage.set(key, value, function(err) {
-      if (err) return reject(err);
+      if (err) {
+        console.error('failed to store ' + key + ' as ' + value);
+        return reject(err);
+      }
       resolve();
     });
   });
