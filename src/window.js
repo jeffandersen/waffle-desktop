@@ -15,6 +15,7 @@ function Window() {
   this.ready = false;
   this.initialLocation = false;
   this.webview = null;
+  this.projectsList = [];
   this.settings = new Settings();
 }
 
@@ -65,6 +66,15 @@ Window.prototype.listen = function() {
 
   if (!this.webview) return;
 
+  this.webview.addEventListener('ipc-message', function(v) {
+    switch (v.channel) {
+      case 'projectsList':
+        self.projectsList = v.args[0];
+        self.setApplicationMenu();
+      break;
+    }
+  });
+
   this.webview.addEventListener('dom-ready', function() {
     var currentUrl = self.webview.getURL();
 
@@ -103,6 +113,12 @@ Window.prototype.listen = function() {
       shell.openExternal(e.url);
     }
   });
+};
+
+Window.prototype._navigatePath = function(path) {
+  var args = "'" + path + "'";
+  var script = "window.WaffleDesktopNotifier.navigateToPath(" + args + ");";
+  self.webview.executeJavaScript(script);
 };
 
 Window.prototype._updateNotification = function(latestVersion, url) {
@@ -214,15 +230,66 @@ Window.prototype.setApplicationMenu = function() {
       ]
     },
     {
+      label: 'Projects',
+      submenu: (function() {
+        if (self.projectsList.length < 1) {
+          return [
+            {
+              label: 'Loading...',
+              enabled: false
+            }
+          ];
+        } else {
+          return self.projectsList.map(function(proj, i) {
+            return {
+              label: proj.lowerCaseName,
+              accelerator: 'Cmd+' + (i + 1),
+              click() {
+                self._navigatePath('/' + proj.lowerCaseName);
+              },
+              // TODO support deciding which are visiblet
+              visible: i <= 8
+            }
+          });
+        }
+      })()
+    },
+    {
       label: "Edit",
       submenu: [
-        { label: "Undo", accelerator: "CmdOrCtrl+Z", selector: "undo:" },
-        { label: "Redo", accelerator: "Shift+CmdOrCtrl+Z", selector: "redo:" },
-        { type: "separator" },
-        { label: "Cut", accelerator: "CmdOrCtrl+X", selector: "cut:" },
-        { label: "Copy", accelerator: "CmdOrCtrl+C", selector: "copy:" },
-        { label: "Paste", accelerator: "CmdOrCtrl+V", selector: "paste:" },
-        { label: "Select All", accelerator: "CmdOrCtrl+A", selector: "selectAll:" }
+        {
+          label: "Undo",
+          accelerator: "CmdOrCtrl+Z",
+          selector: "undo:"
+        },
+        {
+          label: "Redo",
+          accelerator: "Shift+CmdOrCtrl+Z",
+          selector: "redo:"
+        },
+        {
+          type: "separator"
+        },
+        {
+          label: "Cut",
+          accelerator: "CmdOrCtrl+X",
+          selector: "cut:"
+        },
+        {
+          label: "Copy",
+          accelerator: "CmdOrCtrl+C",
+          selector: "copy:"
+        },
+        {
+          label: "Paste",
+          accelerator: "CmdOrCtrl+V",
+          selector: "paste:"
+        },
+        {
+          label: "Select All",
+          accelerator: "CmdOrCtrl+A",
+          selector: "selectAll:"
+        }
       ]
     },
     {
@@ -271,6 +338,11 @@ Window.prototype.setApplicationMenu = function() {
       ]
     },
   ]);
+
+  window.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    appMenu.popup(remote.getCurrentWindow());
+  }, false);
 
   function settingToggle(name, checked) {
     return self.settings.get(name).then(function(val) {

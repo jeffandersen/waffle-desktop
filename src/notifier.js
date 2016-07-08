@@ -62,7 +62,27 @@ Notifier.prototype.init = function() {
 Notifier.prototype.getProjectInfo = function() {
   this.project = this.$scope.repo;
   this.username = this.$scope.username;
+
+  // Get columns and cards
   this.$board = window.angular.element('.board-body').scope() || {};
+
+  // Get list of boards
+  this.getProjectList();
+};
+
+/**
+ * Get projects list
+ */
+Notifier.prototype.getProjectList = function() {
+  var self = this;
+  $.ajax({
+    url: 'https://api.waffle.io/user/projects',
+    headers: {
+      authorization: 'Bearer ' + this.accessToken, 
+    }
+  }).done(function(data) {
+    self.ipc.sendToHost('projectsList', data || []);
+  });
 };
 
 /**
@@ -275,7 +295,6 @@ Notifier.prototype.send = function(title, body, opts) {
 };
 
 Notifier.prototype.updateAvailable = function(latestVersion, url) {
-  console.log('update avail', arguments);
   var n = new Notification('Update available', {
     body: 'Click here to download v' + latestVersion
   });
