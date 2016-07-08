@@ -1,5 +1,6 @@
 'use strict';
 
+const _ = require('lodash');
 const electron = require('electron');
 const storage = require('electron-json-storage');
 const ipcMain  = require('electron').ipcMain;
@@ -7,17 +8,13 @@ const ipcMain  = require('electron').ipcMain;
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
 
-const WINDOW_STATE = 'settings.windowState';
+const WINDOW_STATE = 'windowState';
 
 let mainWindow;
 
 function createWindow () {
   storage.get(WINDOW_STATE, function(err, bounds) {
-    if (err) {
-      console.log(error);
-      return app.quit();
-    }
-
+    if (err) bounds = null;
     bounds = bounds || { width: 800, height: 600 };
     bounds.title = "Waffle Desktop";
     bounds.show = false;
@@ -49,7 +46,7 @@ function createWindow () {
     });
 
     mainWindow.on('close', function () {
-      var bounds = mainWindow.getBounds();
+      bounds = mainWindow.getBounds();
       storage.set(WINDOW_STATE, {
         x: bounds.x,
         y: bounds.y,
