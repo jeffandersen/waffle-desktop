@@ -23,6 +23,7 @@ function Notifier(opts) {
 
   this.ipc = opts.ipc;
   this.app = opts.app;
+  this.board = {};
   this.$scope = opts.$scope;
   this.injector = opts.injector;
   this.window = opts.window;
@@ -45,9 +46,14 @@ function Notifier(opts) {
  * Initialize data and listeners
  */
 Notifier.prototype.init = function() {
-  this.getAccessToken();
-  this.getProjectInfo();
-  this.listen();
+  var self = this;
+
+  // Listen for ui-view element to be added to the page, then show window
+  this.showWindowOnLoad(function() {
+    self.getAccessToken();
+    self.getProjectInfo();
+    self.listen();
+  });
 };
 
 /**
@@ -56,6 +62,7 @@ Notifier.prototype.init = function() {
 Notifier.prototype.getProjectInfo = function() {
   this.project = this.$scope.repo;
   this.username = this.$scope.username;
+  this.$board = window.angular.element('.board-body').scope() || {};
 };
 
 /**
@@ -86,9 +93,6 @@ Notifier.prototype.listen = function() {
     self.clearUnread();
   };
 
-  // Listen for ui-view element to be added to the page, then show window
-  this.showWindowOnLoad();
-
   // Listen for notifications
   this.$scope.$on('waffle.alert.info', function(evt, el) {
     var $el = $(el);
@@ -97,31 +101,66 @@ Notifier.prototype.listen = function() {
 
     var defaultTitle = self.$scope.repo;
     var defaultBody = $el.text();
+
+    if (defaultBody.indexOf(self.username) === 0) {
+      //return; // Don't show you your own
+    }
+
     if (!self.accessToken) {
       return self.send(defaultTitle, defaultBody, opts);
     }
 
+    var body;
     var parts = href.slice(1).split('/');
     var cardId = parts[parts.length - 1];
+    var card = self._identifyCard(cardId);
 
-    self.cards(function(cards) {
-      var target = cards.filter(function(card) {
-        return card._id === cardId;
-      })[0];
+    if (!card) {
+      return self.send(defaultTitle, defaultBody, opts);
+    }
 
-      if (!target) {
-        return self.send(defaultTitle, defaultBody, opts);
-      }
+    var title = card.githubMetadata.title;
+    var prefix = '#' + card.githubMetadata.number + ' ';
 
-      self.send(target.githubMetadata.title, defaultBody, opts);
-    });
+    if (defaultBody.indexOf('moved') > -1) {
+      var parts = defaultBody.split(' moved ');
+      var name = parts[0];
+      body = 'moved to ' + card.column + ' by ' + name;
+    } else if (defaultBody.indexOf('assigned') > -1) {
+      var parts = defaultBody.split(' assigned ');
+      var name = parts[0];
+      body = 'assignment(s) changed by ' + name;
+    }
+
+    title = prefix + title;
+    self.send(title, body || defaultBody, opts);
   });
+};
+
+/**
+ * Find card in board
+ */
+Notifier.prototype._identifyCard = function(id) {
+  var card;
+
+  var board = this.$board.board || {};
+  var columns = board.columns || [];
+  columns.forEach(function(col) {
+    var cd = col.cards.filter(function(c) {
+      return c._id === id;
+    })[0];
+    if (cd && !card) {
+      cd.column = col.displayName;
+      card = cd;
+    }
+  });
+  return card;
 };
 
 /**
  * Show window on load
  */
-Notifier.prototype.showWindowOnLoad = function() {
+Notifier.prototype.showWindowOnLoad = function(cb) {
   var self = this;
   this.crashTimer(30, 'window failed to load');
 
@@ -149,6 +188,7 @@ Notifier.prototype.showWindowOnLoad = function() {
   function show() {
     setTimeout(function() {
       self.ipc.send("showMainWindow");
+      cb();
     }, 500);
     self.clearCrashTimer();
   }
@@ -177,14 +217,10 @@ Notifier.prototype.crashTimer = function(timeout, reason, test) {
   var sec = 0;
   var self = this;
   this._crashTimer = setInterval(function() {
-    console.log('tick');
     if (sec > timeout) {
       self.clearCrashTimer();
       if (typeof test === 'function' && !test()) {
-        console.log('crash');
         self.ipc.send('crash', reason || 'unknown');
-      } else {
-        console.log('passed');
       }
     }
     sec++;
@@ -201,30 +237,6 @@ Notifier.prototype.clearCrashTimer = function() {
 Notifier.prototype.clearUnread = function() {
   this.unreadCount = 0;
   this.ipc.send('unreadCount', this.unreadCount);
-};
-
-/**
- * Retrieve list of cards
- *
- * @param {function} cb
- */
-Notifier.prototype.cards = function(cb) {
-  this.getProjectInfo();
-  this.getAccessToken();
-
-  var path = [
-    this.username,
-    this.project,
-    'cards',
-  ];
-
-  $.ajax({
-    type: 'GET',
-    url: this.endpoint + '/' + path.join('/'),
-    headers: {
-      'Authorization': 'Bearer ' + this.accessToken,
-    }
-  }).done(cb);
 };
 
 /**
