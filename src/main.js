@@ -48,6 +48,14 @@ function createWindow () {
     ipcMain.on('bounceDock', function() {
       app.dock.bounce();
     });
+
+    var windows = [];
+    ipcMain.on('newWindow', function(e) {
+      var child = new BrowserWindow(mainWindow.getBounds());
+      child.loadURL(`file://${__dirname}/index.html`);
+      windows.push(child);
+    });
+
     ipcMain.on('crash', function(evt, reason) {
       console.error('crashed due to timeout: ' + reason);
       if (process.env.NODE_ENV !== 'development') {

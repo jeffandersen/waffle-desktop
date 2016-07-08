@@ -23,7 +23,6 @@ function Notifier(opts) {
 
   this.ipc = opts.ipc;
   this.app = opts.app;
-  this.board = {};
   this.$scope = opts.$scope;
   this.injector = opts.injector;
   this.window = opts.window;
@@ -62,6 +61,7 @@ Notifier.prototype.init = function() {
 Notifier.prototype.getProjectInfo = function() {
   this.project = this.$scope.repo;
   this.username = this.$scope.username;
+  this.ipc.sendToHost('currentProject', this.username + '/' + this.project);
 
   // Get columns and cards
   this.$board = window.angular.element('.board-body').scope() || {};
@@ -307,10 +307,12 @@ Notifier.prototype.updateAvailable = function(latestVersion, url) {
 };
 
 Notifier.prototype.navigateToPath = function(path) {
+  var self = this;
   var $location = this.injector.get("$location");
   if ($location) {
     this.$scope.$apply(function() {
       $location.url(path);
+      self.ipc.sendToHost('currentProject', path.slice(1));
     });
   }
 };

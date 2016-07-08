@@ -7,6 +7,7 @@ const remote = electron.remote;
 const shell = electron.shell;
 const Menu = remote.Menu;
 const MenuItem = remote.MenuItem;
+const ipc = electron.ipcRenderer;
 
 const packageJson = require('../package.json');
 
@@ -71,6 +72,9 @@ Window.prototype.listen = function() {
       case 'projectsList':
         self.projectsList = v.args[0];
         self.setApplicationMenu();
+      break;
+      case 'currentProject':
+        document.title = v.args[0]? v.args[0] : 'Waffle Desktop';
       break;
     }
   });
@@ -232,15 +236,16 @@ Window.prototype.setApplicationMenu = function() {
     {
       label: 'Projects',
       submenu: (function() {
+        var list;
         if (self.projectsList.length < 1) {
-          return [
+          list = [
             {
               label: 'Loading...',
               enabled: false
             }
           ];
         } else {
-          return self.projectsList.map(function(proj, i) {
+          list = self.projectsList.map(function(proj, i) {
             return {
               label: proj.lowerCaseName,
               accelerator: 'Cmd+' + (i + 1),
@@ -252,6 +257,19 @@ Window.prototype.setApplicationMenu = function() {
             }
           });
         }
+
+        return [
+          {
+            label: 'New window',
+            accelerator: 'Command+N',
+            click() {
+              ipc.send('newWindow');
+            }
+          },
+          {
+            type: 'separator'
+          },
+        ].concat(list);
       })()
     },
     {
