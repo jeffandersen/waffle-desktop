@@ -5,6 +5,17 @@ body {
   font-size: 14px;
 }
 
+#returnToWaffle {
+  position: absolute;
+  z-index: 100;
+  left: 15px;
+  top: 15px;
+  background: #78bdf2;
+  border-radius: 5px;
+  padding: 8px 15px;
+  color: #fff;
+  text-decoration: none;
+}
 
 #analytics {
   visibility: hidden;

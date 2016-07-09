@@ -74,6 +74,9 @@ WaffleDesktop.prototype.listen = function() {
     if (self.withinWaffle()) {
       var currentUrl = self.webview.getURL();
       self.settings.set('lastViewed', { url: currentUrl });
+      self.returnBtn.style.display = 'none';
+    } else {
+      self.returnBtn.style.display = 'block';
     }
   });
 
@@ -91,6 +94,11 @@ WaffleDesktop.prototype.listen = function() {
       shell.openExternal(e.url);
     }
   });
+
+  this.returnBtn.onclick = function() {
+    self.navigate('https://waffle.io');
+    self.returnBtn.style.display = 'none';
+  };
 };
 
 /**
@@ -545,6 +553,8 @@ Settings.prototype._save = function(values) {
  */
 
 onload = () => {
-  var wd = new WaffleDesktop();
+  var wd = new WaffleDesktop({
+    returnBtn: document.getElementById('returnToWaffle')
+  });
   wd.init();
 };
