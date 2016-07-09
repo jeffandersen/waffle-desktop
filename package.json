@@ -1,6 +1,6 @@
 {
   "name": "waffle-desktop",
-  "version": "0.0.4-1",
+  "version": "0.0.5",
   "description": "Wrapper for Waffle.io with desktop notifications",
   "author": "Jeff Andersen <@jeffandersen>",
   "license": "MIT",
