@@ -1,5 +1,14 @@
 body {
   margin: 0;
-  font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
-  background-color: #dfdfdf;
+  overflow: hidden;
+  font-family: lato,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size: 14px;
+}
+
+
+#analytics {
+  visibility: hidden;
+  display: none;
+  width: 0;
+  height: 0;
 }
