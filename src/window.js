@@ -11,16 +11,21 @@ const ipc = electron.ipcRenderer;
 
 const packageJson = require('../package.json');
 
-function Window() {
+function WaffleDesktop(opts) {
+  opts = opts || {};
   this.appName = 'Waffle Desktop';
   this.ready = false;
   this.initialLocation = false;
   this.webview = null;
   this.projectsList = [];
+  this.returnBtn = opts.returnBtn;
   this.settings = new Settings();
 }
 
-Window.prototype.init = function() {
+/**
+ * Initialize application menu and start listening for events
+ */
+WaffleDesktop.prototype.init = function() {
   let self = this;
   this.settings.get().then(function(settings) {
     self.webview = document.getElementById('webview');
@@ -33,7 +38,108 @@ Window.prototype.init = function() {
   });
 };
 
-Window.prototype.checkForUpdate = function() {
+WaffleDesktop.prototype.navigate = function(url) {
+  if (!this.webview) return;
+  this.webview.loadURL(url);
+};
+
+/**
+ * Listen to events inside the webview
+ */
+WaffleDesktop.prototype.listen = function() {
+  let self = this;
+
+  if (!this.webview) return;
+
+  // Events from other threads
+  this.webview.addEventListener('ipc-message', this.handleMessage.bind(this));
+
+  // Webview dom is ready
+  this.webview.addEventListener('dom-ready', function() {
+    var currentUrl = self.webview.getURL();
+
+    // Only open devtools in development
+    if (process.env.NODE_ENV === 'development') {
+      webview.openDevTools();
+    }
+
+    // Load last viewed location
+    self.loadLastViewed();
+  });
+
+  this.webview.addEventListener('did-stop-loading', function() {
+    if (!self.ready) return;
+
+    // Only store location when at waffle.io
+    if (self.withinWaffle()) {
+      var currentUrl = self.webview.getURL();
+      self.settings.set('lastViewed', { url: currentUrl });
+      self.returnBtn.style.display = 'none';
+    } else {
+      self.returnBtn.style.display = 'block';
+    }
+  });
+
+  this.webview.addEventListener('did-stop-loading', function() {
+    self.ready = true;
+  });
+
+  // Listen for new window request
+  this.webview.addEventListener('new-window', function(e) {
+    const protocol = require('url').parse(e.url).protocol;
+    if (protocol === 'http:' || protocol === 'https:') {
+      if (self.withinWaffle(e.url)) {
+        return self.navigate(e.url);
+      }
+      shell.openExternal(e.url);
+    }
+  });
+
+  this.returnBtn.onclick = function() {
+    self.navigate('https://waffle.io');
+    self.returnBtn.style.display = 'none';
+  };
+};
+
+/**
+ * Handle inbound message from another thread
+ *
+ * @param {object} v - Event
+ */
+WaffleDesktop.prototype.handleMessage = function(v) {
+  switch (v.channel) {
+    case 'projectsList':
+      this.projectsList = v.args[0];
+      this.setApplicationMenu();
+    break;
+    case 'currentProject':
+      this.setTitle(v.args[0]);
+    break;
+  }
+};
+
+/**
+ * Set the application window title
+ *
+ * @param {string} title
+ */
+WaffleDesktop.prototype.setTitle = function(title) {
+  var defaultTitle = this.appName;
+  title = title || defaultTitle;
+
+  if (!this.withinWaffle()) {
+    title = defaultTitle;
+  } else {
+    title = title.indexOf('undefined/undefined') > -1? defaultTitle : title;
+  }
+
+  document.title = title;
+};
+
+/**
+ * Check for update against last published version
+ */
+WaffleDesktop.prototype.checkForUpdate = function() {
   return new Promise((resolve) => {
     var self = this;
     request({
@@ -51,7 +157,7 @@ Window.prototype.checkForUpdate = function() {
             // Only notify once
             if (versions.indexOf(self.latestVersion) === -1) {
               versions.push(self.latestVersion);
-              self._updateNotification(self.latestVersion, res.body.downloadUrl);
+              self.updateNotification(self.latestVersion, res.body.downloadUrl);
               return self.settings.set('notifiedUpdates', versions);
             }
           });
@@ -62,75 +168,13 @@ Window.prototype.checkForUpdate = function() {
   });
 };
 
-Window.prototype.listen = function() {
-  let self = this;
-
-  if (!this.webview) return;
-
-  this.webview.addEventListener('ipc-message', function(v) {
-    switch (v.channel) {
-      case 'projectsList':
-        self.projectsList = v.args[0];
-        self.setApplicationMenu();
-      break;
-      case 'currentProject':
-        var title = v.args[0]? v.args[0] : 'Waffle Desktop';
-        // XXX: stop-gap until bug can be identified
-        if (title.indexOf('undefined/undefined') > -1) {
-          title = 'Waffle Desktop';
-        }
-        document.title = title;
-      break;
-    }
-  });
-
-  this.webview.addEventListener('dom-ready', function() {
-    var currentUrl = self.webview.getURL();
-
-    // Only open devtools in development
-    if (process.env.NODE_ENV === 'development') {
-      webview.openDevTools();
-    }
-
-    // Load last viewed page
-    self.settings.get('lastViewed').then(function(value) {
-      var url = value && value.url;
-      if (!self.initialLocation && url && url !== currentUrl) {
-        self.initialLocation = true;
-        self.webview.loadURL(value.url);
-      }
-      return self.injectSettings();
-    });
-  });
-
-  this.webview.addEventListener('did-stop-loading', function() {
-    if (!self.ready) return;
-    var currentUrl = self.webview.getURL();
-    self.settings.set('lastViewed', { url: currentUrl });
-  });
-
-  this.webview.addEventListener('did-stop-loading', function() {
-    self.ready = true;
-  });
-
-  this.webview.addEventListener('new-window', function(e) {
-    const protocol = require('url').parse(e.url).protocol;
-    if (protocol === 'http:' || protocol === 'https:') {
-      if (e.url.indexOf('https://waffle.io') === 0) {
-        return self.webview.loadURL(e.url);
-      }
-      shell.openExternal(e.url);
-    }
-  });
-};
-
-Window.prototype._navigatePath = function(path) {
-  var args = "'" + path + "'";
-  var script = "window.WaffleDesktopNotifier.navigateToPath(" + args + ");";
-  self.webview.executeJavaScript(script);
-};
-
-Window.prototype._updateNotification = function(latestVersion, url) {
+/**
+ * Send notification of update available
+ *
+ * @param {string} latestVersion - Semver of newest version
+ * @param {string} url - Download url
+ */
+WaffleDesktop.prototype.updateNotification = function(latestVersion, url) {
   if (this.hasNotifiedUpdate) return;
 
   var self = this;
@@ -143,11 +187,44 @@ Window.prototype._updateNotification = function(latestVersion, url) {
   }, 5 * 1000);
 };
 
-Window.prototype.injectSettings = function() {
+/**
+ * Determine if webview is viewing a waffle.io page
+ *
+ * @param {string} url
+ */
+WaffleDesktop.prototype.withinWaffle = function(url) {
+  if (!this.webview) return false;
+  var currentUrl = url? url : this.webview.getURL();
+  return currentUrl && currentUrl.indexOf('https://waffle.io') === 0;
+};
+
+/**
+ * Navigate the path within waffle, using pushstate
+ *
+ * @param {string} path
+ */
+WaffleDesktop.prototype.navigatePath = function(path) {
+  path = path.indexOf('/') === 0? path : '/' + path;
+
+  // Trigger url redirection if not already within waffle.io
+  if (!this.withinWaffle()) {
+    return self.navigate('https://waffle.io' + path);
+  }
+
+  var args = "'" + path + "'";
+  var script = "window.WaffleDesktopNotifier.navigateToPath(" + args + ");";
+  self.webview.executeJavaScript(script);
+};
+
+/**
+ * Inject settings information onto the page
+ */
+WaffleDesktop.prototype.injectSettings = function() {
   return new Promise((resolve, reject) => {
     let self = this;
 
     if (!this.webview) return resolve();
+    if (!this.withinWaffle()) return resolve();
 
     this.settings.get().then(function(settings) {
       var data = JSON.stringify(settings);
@@ -159,7 +236,10 @@ Window.prototype.injectSettings = function() {
   });
 };
 
-Window.prototype.setApplicationMenu = function() {
+/**
+ * Set application menu in menubar
+ */
+WaffleDesktop.prototype.setApplicationMenu = function() {
   let self = this;
   let appMenu = Menu.buildFromTemplate([
     {
@@ -169,7 +249,14 @@ Window.prototype.setApplicationMenu = function() {
           label: 'Go Home',
           click: function() {
             if (!self.webview) return;
-            self.webview.loadURL('https://waffle.io');
+            self.navigate('https://waffle.io');
+          }
+        },
+        {
+          label: 'Go to Github',
+          click: function() {
+            if (!self.webview) return;
+            self.navigate('https://github.com');
           }
         },
         {
@@ -255,9 +342,9 @@ Window.prototype.setApplicationMenu = function() {
               label: proj.lowerCaseName,
               accelerator: 'Cmd+' + (i + 1),
               click() {
-                self._navigatePath('/' + proj.lowerCaseName);
+                self.navigatePath('/' + proj.lowerCaseName);
               },
-              // TODO support deciding which are visiblet
+              // TODO support deciding which are visible
               visible: i <= 8
             }
           });
@@ -387,6 +474,25 @@ Window.prototype.setApplicationMenu = function() {
 };
 
 /**
+ * Restore window to last viewed location
+ */
+WaffleDesktop.prototype.loadLastViewed = function(force) {
+  if (!this.webview) return;
+  if (!force && !this.withinWaffle()) return;
+
+  var self = this;
+  var currentUrl = this.webview.getURL();
+  this.settings.get('lastViewed').then(function(value) {
+    var url = value && value.url;
+    if (!self.initialLocation && url && url !== currentUrl) {
+      self.initialLocation = true;
+      self.navigate(value.url);
+    }
+    return self.injectSettings();
+  });
+};
+
+/**
  * Settings wrapper
  */
 function Settings() {
@@ -447,6 +553,8 @@ Settings.prototype._save = function(values) {
  */
 
 onload = () => {
-  var w = new Window();
-  w.init();
+  var wd = new WaffleDesktop({
+    returnBtn: document.getElementById('returnToWaffle')
+  });
+  wd.init();
 };

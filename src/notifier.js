@@ -2,6 +2,12 @@ window.onload = function() {
   var remote = require('electron').remote;
   var ipc = require('electron').ipcRenderer;
 
+  // Show window immediately if angular not found
+  if (!window.angular) {
+    ipc.send("showMainWindow");
+    return;
+  }
+
   var $body = window.angular.element('body');
   var injector = $body.injector();
   var $rootScope = injector.get('$rootScope');
@@ -78,7 +84,7 @@ Notifier.prototype.getProjectList = function() {
   $.ajax({
     url: 'https://api.waffle.io/user/projects',
     headers: {
-      authorization: 'Bearer ' + this.accessToken, 
+      authorization: 'Bearer ' + this.accessToken,
     }
   }).done(function(data) {
     self.ipc.sendToHost('projectsList', data || []);
