@@ -10,6 +10,7 @@ const MenuItem = remote.MenuItem;
 const ipc = electron.ipcRenderer;
 
 const packageJson = require('../package.json');
+const notification = require('./notification');
 
 function WaffleDesktop(opts) {
   opts = opts || {};
@@ -112,6 +113,9 @@ WaffleDesktop.prototype.handleMessage = function(v) {
       this.projectsList = v.args[0];
       this.setApplicationMenu();
     break;
+    case 'currentLocation':
+      this.settings.set('lastViewed', { url: v.args[0] });
+    break;
     case 'currentProject':
       this.setTitle(v.args[0]);
     break;
@@ -176,13 +180,17 @@ WaffleDesktop.prototype.checkForUpdate = function() {
  */
 WaffleDesktop.prototype.updateNotification = function(latestVersion, url) {
   if (this.hasNotifiedUpdate) return;
-
   var self = this;
-  setTimeout(function() {
-    var args = "'" + latestVersion + "', '" + url + "'";
-    var script = "window.WaffleDesktopNotifier.updateAvailable(" + args + ");";
-    self.webview.executeJavaScript(script, function() {
-      self.hasNotifiedUpdate = true;
+
+  this.hasNotifiedUpdate = true;
+
+  return setTimeout(function() {
+    return notification.send('Update available', body, {
+      silent: false,
+      dockBounce: true,
+      onclick: function() {
+        self.webview.loadURL(url);
+      }
     });
   }, 5 * 1000);
 };
