@@ -1,6 +1,7 @@
 window.onload = function() {
   var remote = require('electron').remote;
   var ipc = require('electron').ipcRenderer;
+  var notification = require('./notification');
 
   // Show window immediately if angular not found
   if (!window.angular) {
@@ -13,6 +14,7 @@ window.onload = function() {
   var $rootScope = injector.get('$rootScope');
 
   window.WaffleDesktopNotifier = new Notifier({
+    notification: require('./notification'),
     $scope: window.angular.element('body').injector().get('$rootScope'),
     webview: remote.getCurrentWindow(),
     app: window.Application,
@@ -27,6 +29,7 @@ window.onload = function() {
 function Notifier(opts) {
   opts = opts || {};
 
+  this.send = opts.notification.send.bind(null);
   this.ipc = opts.ipc;
   this.app = opts.app;
   this.$scope = opts.$scope;
@@ -65,8 +68,10 @@ Notifier.prototype.init = function() {
  * Identify project info
  */
 Notifier.prototype.getProjectInfo = function() {
+  console.log('repo', this.$scope.repo);
   this.project = this.$scope.repo;
   this.username = this.$scope.username;
+  console.log('un', this.username, 'pj', this.project);
   this.ipc.sendToHost('currentProject', this.username + '/' + this.project);
 
   // Get columns and cards
@@ -113,6 +118,17 @@ Notifier.prototype.getAccessToken = function() {
  */
 Notifier.prototype.listen = function() {
   var self = this;
+
+  // Watch for location changes
+  var location = this.window.location;
+  setInterval(function() {
+    self.getProjectInfo();
+    var current = self.window.location;
+    if (current.href !== location.href) {
+      location = self.window.location;
+      self.ipc.send('currentLocation', location.href);
+    }
+  }, 3000);
 
   // Clear unread badge when focused
   this.window.onfocus = function() {
@@ -272,44 +288,21 @@ Notifier.prototype.clearUnread = function() {
  * @param {string} body
  */
 Notifier.prototype.send = function(title, body, opts) {
+  opts = opts || {};
   let self = this;
 
   this.unreadCount++;
 
-  if (!this.flag('dnd')) {
-    var n = new Notification(title, {
-      body: body,
-      silent: this.flag('mute'),
-    });
-
-    if (opts.path) {
-      n.onclick = function() {
-        self.navigateToPath(opts.path);
-      };
-    }
-    return;
-  }
-
-  if (!this.flag('dockBounce')) {
-    this.ipc.send('bounceDock');
-  }
-  if (!this.flag('dockBadge')) {
-    this.ipc.send('unreadCount', this.unreadCount);
-  }
-
-  return n;
-};
-
-Notifier.prototype.updateAvailable = function(latestVersion, url) {
-  var n = new Notification('Update available', {
-    body: 'Click here to download v' + latestVersion
+  return notification.send(title, body, {
+    context : this,
+    onclick: function() {
+      if (!opts.path) return;
+      return self.navigateToPath(opts.path);
+    },
+    silent: this.flag('mute'),
+    dockBounce: this.flag('dockBounce'),
+    dockBadge: this.flag('dockBadge')
   });
-  if (url) {
-    n.onclick = function() {
-      window.location.href = url;
-    };
-  }
-  return n;
 };
 
 Notifier.prototype.navigateToPath = function(path) {
